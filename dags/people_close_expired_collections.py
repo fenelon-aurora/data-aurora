@@ -35,7 +35,7 @@ DEFAULT_ARGS = {"owner": "data-aurora", "retries": 2, "retry_delay": timedelta(m
 def people_close_expired_collections():
     @task
     def encerrar(params: dict | None = None) -> dict:
-        from data_aurora.composition.container import build_container
+        from data_aurora.container import build_container
 
         dry_run = bool((params or {}).get("dry_run", False))
         result = build_container().close_expired_collections.execute(dry_run=dry_run)

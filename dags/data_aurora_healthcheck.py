@@ -31,7 +31,7 @@ DEFAULT_ARGS = {"owner": "data-aurora", "retries": 1, "retry_delay": timedelta(m
 def data_aurora_healthcheck():
     @task
     def verificar_servicos() -> list[dict]:
-        from data_aurora.composition.container import build_container
+        from data_aurora.container import build_container
 
         results = build_container().healthcheck.execute()
         return [{"service": r.service, "ok": r.ok, "detail": r.detail} for r in results]

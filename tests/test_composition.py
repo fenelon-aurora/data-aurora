@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from data_aurora.composition.container import build_container
-from data_aurora.composition.settings import load_settings
-from data_aurora.domain.errors import ConfigError
+from data_aurora.container import build_container
+from data_aurora.shared.domain.errors import ConfigError
+from data_aurora.shared.settings import load_settings
 
 
 def test_settings_por_ambiente(monkeypatch):

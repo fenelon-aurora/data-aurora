@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 import requests
 
-from data_aurora.adapters.outbound.people_http import CLOSE_EXPIRED_PATH, SERVICE_KEY_HEADER, PeopleHttpAdapter
-from data_aurora.domain.errors import UpstreamError
+from data_aurora.people.adapters.people_http import CLOSE_EXPIRED_PATH, SERVICE_KEY_HEADER, PeopleHttpAdapter
+from data_aurora.shared.domain.errors import UpstreamError
 
 
 class FakeResponse:

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from data_aurora.domain.entities import CloseExpiredResult, ServiceHealth
-from data_aurora.domain.errors import UpstreamError
-from data_aurora.services.close_expired_collections import CloseExpiredCollections
-from data_aurora.services.healthcheck import HealthCheck
+from data_aurora.people.domain.entities import CloseExpiredResult
+from data_aurora.people.services.close_expired_collections import CloseExpiredCollections
+from data_aurora.shared.domain.entities import ServiceHealth
+from data_aurora.shared.domain.errors import UpstreamError
+from data_aurora.shared.services.healthcheck import HealthCheck
 
 
 class FakePeople:
@@ -29,6 +30,6 @@ def test_close_expired_repassa_dry_run():
 
 
 def test_healthcheck_falha_quando_servico_cai():
-    assert HealthCheck(FakePeople()).execute()[0].ok is True
+    assert HealthCheck([FakePeople()]).execute()[0].ok is True
     with pytest.raises(UpstreamError):
-        HealthCheck(FakePeople(healthy=False)).execute()
+        HealthCheck([FakePeople(healthy=False)]).execute()

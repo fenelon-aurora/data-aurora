@@ -5,9 +5,9 @@ do People no horário e registra o resultado. Rodar duas vezes não encerra nada
 """
 from __future__ import annotations
 
-from data_aurora.domain.entities import CloseExpiredResult
-from data_aurora.domain.ports import PeoplePort
-from data_aurora.utils.logging import get_logger
+from data_aurora.people.domain.entities import CloseExpiredResult
+from data_aurora.people.domain.ports import PeoplePort
+from data_aurora.shared.logging import get_logger
 
 logger = get_logger(__name__)
 

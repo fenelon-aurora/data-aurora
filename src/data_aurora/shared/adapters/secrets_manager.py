@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 
-from data_aurora.domain.errors import ConfigError
-from data_aurora.utils.logging import get_logger
+from data_aurora.shared.domain.errors import ConfigError
+from data_aurora.shared.logging import get_logger
 
 logger = get_logger(__name__)
 

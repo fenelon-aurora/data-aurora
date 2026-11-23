@@ -3,13 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from data_aurora.adapters.outbound.people_http import PeopleHttpAdapter
-from data_aurora.adapters.outbound.secrets_manager import SecretsManagerAdapter
-from data_aurora.composition.settings import Settings, load_settings
-from data_aurora.domain.errors import ConfigError
-from data_aurora.services.close_expired_collections import CloseExpiredCollections
-from data_aurora.services.healthcheck import HealthCheck
-from data_aurora.utils.logging import get_logger
+from data_aurora.people.adapters.people_http import PeopleHttpAdapter
+from data_aurora.people.services.close_expired_collections import CloseExpiredCollections
+from data_aurora.shared.adapters.secrets_manager import SecretsManagerAdapter
+from data_aurora.shared.domain.errors import ConfigError
+from data_aurora.shared.logging import get_logger
+from data_aurora.shared.services.healthcheck import HealthCheck
+from data_aurora.shared.settings import Settings, load_settings
 
 logger = get_logger(__name__)
 
@@ -38,7 +38,7 @@ def build_container(settings: Settings | None = None) -> Container:
         people = PeopleHttpAdapter(settings.people_api_url, people_service_key, settings.http_timeout_seconds)
         container = Container(
             settings=settings,
-            healthcheck=HealthCheck(people),
+            healthcheck=HealthCheck([people]),
             close_expired_collections=CloseExpiredCollections(people),
         )
         logger.info("Completed build_container")

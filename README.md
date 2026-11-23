@@ -5,24 +5,37 @@ A infraestrutura (ECS, bucket, sidecar de sync) está em `iac-aurora/pipeline`.
 
 ## Arquitetura
 
-Mesmas camadas do `ia-aurora` (hexagonal): a DAG é só o adaptador de entrada; a regra fica no pacote
+Mesmas regras do `ia-aurora` (hexagonal): a DAG é só o adaptador de entrada; a regra fica no pacote
 `data_aurora`, que não importa Airflow e é testado sem ele.
 
+`data_aurora` é só o espaço de nomes: todos os repositórios publicados no Airflow dividem o mesmo
+processo Python, e um nome único evita que dois `services` ou `people` se confundam. O significado
+fica nos subpacotes, um por domínio (o serviço com que a DAG trabalha), mais `shared`:
+
 ```
-dags/                         → adaptador de entrada: agenda, parâmetros, retries; chama o use case
+dags/                                  → adaptador de entrada: agenda, parâmetros, retries; chama o caso de uso
 src/data_aurora/
-  domain/                     → entities (frozen dataclasses), ports (Protocol), errors
-  services/                   → casos de uso; dependem só de ports
-  adapters/outbound/          → people_http (requests), secrets_manager (boto3)
-  composition/                → settings (load_settings) e container (DI, único lugar com classes concretas)
-  utils/logging.py
-tests/                        → pytest; test_dags.py só roda com Airflow instalado (CI)
+  container.py                         → DI: único lugar que conhece as classes concretas
+  shared/                              → comum a todos os domínios
+    domain/   errors, entities (ServiceHealth), ports (SecretsPort, HealthPort)
+    services/ healthcheck
+    adapters/ secrets_manager (boto3)
+    settings.py, logging.py
+  people/                              → tudo que fala com o People
+    domain/   entities, ports (PeoplePort)
+    services/ close_expired_collections
+    adapters/ people_http (requests)
+tests/                                 → pytest; tests/people espelha o domínio; test_dags.py só roda com Airflow (CI)
 ```
+
+Novo domínio (ex.: `ia`): `data_aurora/ia/{domain,services,adapters}`, ligação no `container.py`,
+DAG em `dags/` e testes em `tests/ia/`.
 
 Regras (as do `ia-aurora/.cursor/rules/02-ia-hexagonal-architecture.mdc`):
 
 - caso de uso depende de port, nunca de `requests`/`boto3`;
-- DI só em `composition/container.py`; configuração só em `composition/settings.py`;
+- um domínio não importa outro; o que for comum vai para `shared`;
+- DI só em `container.py`; configuração só em `shared/settings.py`;
 - a task importa o container **dentro** da função, para o parse do scheduler não abrir conexão;
 - log de entrada/saída/erro em todo caso de uso e adaptador; nunca logar segredo, token ou texto de colaborador;
 - toda operação disparada por DAG precisa ser idempotente no serviço de destino.

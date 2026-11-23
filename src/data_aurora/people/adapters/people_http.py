@@ -9,9 +9,10 @@ from collections.abc import Callable
 
 import requests
 
-from data_aurora.domain.entities import CloseExpiredResult, ServiceHealth
-from data_aurora.domain.errors import UpstreamError
-from data_aurora.utils.logging import get_logger
+from data_aurora.people.domain.entities import CloseExpiredResult
+from data_aurora.shared.domain.entities import ServiceHealth
+from data_aurora.shared.domain.errors import UpstreamError
+from data_aurora.shared.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -10,8 +10,8 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
-from data_aurora.domain.errors import ConfigError
-from data_aurora.utils.logging import get_logger
+from data_aurora.shared.domain.errors import ConfigError
+from data_aurora.shared.logging import get_logger
 
 logger = get_logger(__name__)
 

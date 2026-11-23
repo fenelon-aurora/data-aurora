@@ -1,14 +1,7 @@
-"""Estruturas imutáveis trocadas entre casos de uso e portas."""
+"""Estruturas do domínio People."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
-
-@dataclass(frozen=True)
-class ServiceHealth:
-    service: str
-    ok: bool
-    detail: str = ""
 
 
 @dataclass(frozen=True)
