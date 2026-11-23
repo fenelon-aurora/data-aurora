@@ -34,7 +34,44 @@ def _contexto_execucao() -> dict:
     }
 
 
-DEFAULT_ARGS = {"owner": "data-aurora", "retries": 2, "retry_delay": timedelta(minutes=2)}
+def _avisar(context: dict, status: str) -> None:
+    """Callback de sucesso/falha: e-mail SES para o time (data_aurora_notify_*). Nunca falha a task."""
+    try:
+        from data_aurora.container import build_notifier
+        from data_aurora.shared.run_report import run_report_from_context
+        from data_aurora.shared.settings import load_settings
+
+        resumo = context["ti"].xcom_pull(task_ids=context["ti"].task_id) if status == "sucesso" else None
+        resumo = resumo if isinstance(resumo, dict) else {}
+        linhas = {
+            "Ciclos encerrados": resumo.get("closed", "—"),
+            "Dry run": resumo.get("dry_run", "—"),
+            "Ciclos": ", ".join(resumo.get("cycle_ids", [])) or "—",
+        } if status == "sucesso" else {}
+        report = run_report_from_context(context, status, load_settings().airflow_base_url, linhas)
+        build_notifier().execute(report, changed=bool(resumo.get("closed")))
+    except Exception as exc:  # noqa: BLE001
+        import logging
+
+        logging.getLogger("airflow.task.data_aurora.dags").error("aviso.erro_callback | erro=%s", type(exc).__name__)
+
+
+def _avisar_sucesso(context: dict) -> None:
+    _avisar(context, "sucesso")
+
+
+def _avisar_falha(context: dict) -> None:
+    _avisar(context, "falha")
+
+
+DEFAULT_ARGS = {
+    "owner": "data-aurora",
+    "retries": 2,
+    "retry_delay": timedelta(minutes=2),
+    # Falha: só depois da última tentativa. Sucesso: conforme data_aurora_notify_success.
+    "on_failure_callback": _avisar_falha,
+    "on_success_callback": _avisar_sucesso,
+}
 
 
 @dag(

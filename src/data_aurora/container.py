@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from data_aurora.people.adapters.people_http import PeopleHttpAdapter
 from data_aurora.people.services.close_expired_collections import CloseExpiredCollections
 from data_aurora.shared.adapters.secrets_manager import SecretsManagerAdapter
+from data_aurora.shared.adapters.ses_email import SesEmailAdapter
 from data_aurora.shared.domain.errors import ConfigError
 from data_aurora.shared.logging import get_logger
 from data_aurora.shared.services.healthcheck import HealthCheck
+from data_aurora.shared.services.notify_run import NotifyRun
 from data_aurora.shared.settings import Settings, load_settings
 
 logger = get_logger(__name__)
@@ -46,3 +48,14 @@ def build_container(settings: Settings | None = None) -> Container:
     except Exception as exc:
         logger.error("Error in build_container: %s", exc)
         raise
+
+
+def build_notifier(settings: Settings | None = None) -> NotifyRun:
+    """Só o aviso por e-mail: não exige a configuração do People (usado nos callbacks da DAG)."""
+    settings = settings or load_settings()
+    return NotifyRun(
+        SesEmailAdapter(settings.aws_region, settings.notify_sender),
+        settings.notify_recipients,
+        settings.notify_success,
+        settings.environment,
+    )

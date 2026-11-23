@@ -67,6 +67,24 @@ logs remotos em S3), porque os loggers ficam sob `airflow.task`. Uma linha por e
 Chaves com `key`, `token`, `secret`, `password`, `senha` ou `authorization` no nome saem como `***`.
 Nunca registrar texto de colaborador.
 
+## Avisos por e-mail (SES)
+
+A `people_close_expired_collections` manda e-mail pelo SES (`noreply@aurorapeople.ai`, domínio verificado):
+
+- **falha:** sempre, depois da última tentativa (não a cada retry), com erro, mensagem, tentativa e link para o log;
+- **sucesso:** conforme `data_aurora_notify_success`: `com_mudancas` (padrão: só quando encerrou algum
+  ciclo, para não mandar 96 e-mails por dia), `sempre` ou `nunca`.
+
+| Variable | Padrão |
+|---|---|
+| `data_aurora_notify_recipients` | `tech@aurorapeople.ai,lucas.fenelon@aurorapeople.ai,thais.plewka@aurorapeople.ai` |
+| `data_aurora_notify_success` | `com_mudancas` |
+| `data_aurora_notify_sender` | `Aurora Pipeline <noreply@aurorapeople.ai>` |
+| `data_aurora_airflow_base_url` | `https://pipeline.aurorapeople.ai` |
+
+Erro ao enviar o aviso fica no log (`aviso.erro`) e não muda o estado da task. A role das tasks do
+Airflow precisa de `ses:SendEmail` na identidade `aurorapeople.ai` (iac-aurora/pipeline).
+
 ## Configuração
 
 Cada chave é lida da variável de ambiente (task definition, via iac-aurora) e, se ausente, da Airflow

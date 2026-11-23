@@ -18,3 +18,5 @@ def test_dags_carregam_sem_erro():
     assert {"data_aurora_healthcheck", "people_close_expired_collections"} <= set(bag.dag_ids)
     fechar = bag.get_dag("people_close_expired_collections")
     assert fechar.max_active_runs == 1 and fechar.catchup is False
+    tarefa = fechar.get_task("encerrar")
+    assert tarefa.on_failure_callback and tarefa.on_success_callback
