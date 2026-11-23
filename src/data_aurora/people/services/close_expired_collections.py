@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from data_aurora.people.domain.entities import CloseExpiredResult
 from data_aurora.people.domain.ports import PeoplePort
-from data_aurora.shared.logging import get_logger
+from data_aurora.shared.logging import etapa, get_logger, log_event
 
 logger = get_logger(__name__)
 
@@ -17,16 +17,10 @@ class CloseExpiredCollections:
         self._people = people
 
     def execute(self, *, dry_run: bool = False) -> CloseExpiredResult:
-        logger.info("Starting CloseExpiredCollections dry_run=%s", dry_run)
-        try:
+        with etapa(logger, "close_expired_collections", dry_run=dry_run) as fim:
             result = self._people.close_expired_collections(dry_run=dry_run)
-            logger.info(
-                "Completed CloseExpiredCollections closed=%s skipped=%s dry_run=%s",
-                result.closed,
-                result.skipped,
-                result.dry_run,
-            )
+            for cycle_id in result.closed_cycle_ids:
+                log_event(logger, "close_expired_collections.ciclo", ciclo_id=cycle_id,
+                          acao="listado (dry_run)" if result.dry_run else "encerrado")
+            fim.update(encerrados=result.closed, ignorados=result.skipped, dry_run_servidor=result.dry_run)
             return result
-        except Exception as exc:
-            logger.error("Error in CloseExpiredCollections: %s", exc)
-            raise

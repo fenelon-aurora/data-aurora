@@ -45,9 +45,27 @@ Regras (as do `ia-aurora/.cursor/rules/02-ia-hexagonal-architecture.mdc`):
 | DAG | Agenda | Situação |
 |---|---|---|
 | `data_aurora_healthcheck` | manual | Confere pacote, configuração e `GET /health` do People |
-| `people_close_expired_collections` | a cada 15 min | **Nasce pausada.** Depende da rota `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`), ainda não criada |
+| `people_close_expired_collections` | a cada 15 min (`*/15 * * * *`, UTC: :00, :15, :30, :45) | **Nasce pausada.** Depende da rota `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`), ainda não criada |
 
 Toda DAG: `catchup=False`, `max_active_runs=1`, tag `data-aurora`.
+
+## Logs
+
+Tudo que o pacote registra vai para o log da task (aba **Logs** de cada execução no Airflow e
+logs remotos em S3), porque os loggers ficam sob `airflow.task`. Uma linha por evento, no formato
+`evento | chave=valor ...`, para ler na tela e filtrar depois:
+
+| Evento | Quando | Campos principais |
+|---|---|---|
+| `execucao` | primeira linha de toda task | `dag_id`, `task_id`, `run_id`, `data_logica`, `tentativa`, `max_tentativas`, parâmetros |
+| `settings.fonte` / `settings.carregadas` | ao montar a configuração | de onde veio cada chave (`env`, `airflow_variable`, `padrao`, `ausente`); ambiente, host do People, se o segredo está configurado |
+| `<caso_de_uso>.inicio` / `.fim` / `.erro` | em volta de cada caso de uso | parâmetros, contagens, `duracao_ms`; no erro, tipo e mensagem |
+| `people.http` | cada chamada ao People | `metodo`, `host`, `rota`, `status`, `latencia_ms` (ERROR se status ≥ 400 ou falha de rede) |
+| `close_expired_collections.ciclo` | um por ciclo encerrado | `ciclo_id`, `acao` |
+| `resumo` | última linha da task | totais da execução (também devolvidos como XCom) |
+
+Chaves com `key`, `token`, `secret`, `password`, `senha` ou `authorization` no nome saem como `***`.
+Nunca registrar texto de colaborador.
 
 ## Configuração
 

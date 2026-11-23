@@ -2,17 +2,21 @@
 
 Rotas internas do People exigem o header `x-aurora-service-key` (mesmo padrão do
 `x-aurora-provisioner-key` de `/internal/account-access/resolve`). A chave vem do Secrets Manager.
+Cada chamada gera uma linha `people.http` com método, rota, status e latência.
 """
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import Callable
+from urllib.parse import urlparse
 
 import requests
 
 from data_aurora.people.domain.entities import CloseExpiredResult
 from data_aurora.shared.domain.entities import ServiceHealth
 from data_aurora.shared.domain.errors import UpstreamError
-from data_aurora.shared.logging import get_logger
+from data_aurora.shared.logging import get_logger, log_event
 
 logger = get_logger(__name__)
 
@@ -30,41 +34,50 @@ class PeopleHttpAdapter:
         session: requests.Session | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._host = urlparse(self._base_url).netloc or self._base_url
         self._service_key = service_key
         self._timeout = timeout_seconds
         self._session = session or requests.Session()
 
-    def health(self) -> ServiceHealth:
-        logger.info("Starting people.health")
+    def _call(self, method: str, path: str, **kwargs) -> requests.Response:
+        inicio = time.monotonic()
         try:
-            resp = self._session.get(f"{self._base_url}/health", timeout=self._timeout)
-            ok = resp.status_code == 200
-            logger.info("Completed people.health status=%s", resp.status_code)
-            return ServiceHealth(SERVICE, ok, "" if ok else f"HTTP {resp.status_code}")
-        except requests.RequestException as exc:
-            logger.error("Error in people.health: %s", type(exc).__name__)
-            return ServiceHealth(SERVICE, False, type(exc).__name__)
-
-    def close_expired_collections(self, *, dry_run: bool) -> CloseExpiredResult:
-        logger.info("Starting people.close_expired_collections dry_run=%s", dry_run)
-        try:
-            resp = self._session.post(
-                f"{self._base_url}{CLOSE_EXPIRED_PATH}",
-                json={"dry_run": dry_run},
-                headers={SERVICE_KEY_HEADER: self._service_key()},
-                timeout=self._timeout,
+            resp = getattr(self._session, method.lower())(
+                f"{self._base_url}{path}", timeout=self._timeout, **kwargs
             )
         except requests.RequestException as exc:
-            logger.error("Error in people.close_expired_collections: %s", type(exc).__name__)
+            log_event(
+                logger, "people.http", logging.ERROR, metodo=method, host=self._host, rota=path,
+                erro=type(exc).__name__, latencia_ms=(time.monotonic() - inicio) * 1000, timeout_s=self._timeout,
+            )
+            raise
+        log_event(
+            logger, "people.http", logging.INFO if resp.status_code < 400 else logging.ERROR,
+            metodo=method, host=self._host, rota=path, status=resp.status_code,
+            latencia_ms=(time.monotonic() - inicio) * 1000,
+        )
+        return resp
+
+    def health(self) -> ServiceHealth:
+        try:
+            resp = self._call("GET", "/health")
+        except requests.RequestException as exc:
+            return ServiceHealth(SERVICE, False, type(exc).__name__)
+        ok = resp.status_code == 200
+        return ServiceHealth(SERVICE, ok, "" if ok else f"HTTP {resp.status_code}")
+
+    def close_expired_collections(self, *, dry_run: bool) -> CloseExpiredResult:
+        try:
+            resp = self._call(
+                "POST", CLOSE_EXPIRED_PATH, json={"dry_run": dry_run}, headers={SERVICE_KEY_HEADER: self._service_key()}
+            )
+        except requests.RequestException as exc:
             raise UpstreamError(SERVICE, type(exc).__name__) from exc
         if resp.status_code != 200:
-            logger.error("Error in people.close_expired_collections: HTTP %s", resp.status_code)
-            raise UpstreamError(SERVICE, "close-expired-collections recusado", resp.status_code)
+            raise UpstreamError(SERVICE, f"{CLOSE_EXPIRED_PATH} recusado", resp.status_code)
         body = resp.json()
-        result = CloseExpiredResult(
+        return CloseExpiredResult(
             closed_cycle_ids=tuple(str(i) for i in body.get("closed_cycle_ids", [])),
             skipped=int(body.get("skipped", 0)),
             dry_run=bool(body.get("dry_run", dry_run)),
         )
-        logger.info("Completed people.close_expired_collections closed=%s", result.closed)
-        return result

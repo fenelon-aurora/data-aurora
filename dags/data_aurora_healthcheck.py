@@ -15,6 +15,23 @@ if str(_SRC) not in sys.path:
 
 from airflow.decorators import dag, task  # noqa: E402
 
+
+def _contexto_execucao() -> dict:
+    """Identificação da execução para a primeira linha do log da task."""
+    from airflow.operators.python import get_current_context
+
+    ctx = get_current_context()
+    ti = ctx["ti"]
+    return {
+        "dag_id": ti.dag_id,
+        "task_id": ti.task_id,
+        "run_id": ctx["run_id"],
+        "data_logica": ctx["logical_date"].isoformat(),
+        "tentativa": ti.try_number,
+        "max_tentativas": ti.max_tries + 1,
+    }
+
+
 DEFAULT_ARGS = {"owner": "data-aurora", "retries": 1, "retry_delay": timedelta(minutes=1)}
 
 
@@ -32,9 +49,14 @@ def data_aurora_healthcheck():
     @task
     def verificar_servicos() -> list[dict]:
         from data_aurora.container import build_container
+        from data_aurora.shared.logging import get_logger, log_event, log_execucao
 
+        logger = get_logger("dags.healthcheck")
+        log_execucao(logger, _contexto_execucao())
         results = build_container().healthcheck.execute()
-        return [{"service": r.service, "ok": r.ok, "detail": r.detail} for r in results]
+        resumo = [{"service": r.service, "ok": r.ok, "detail": r.detail} for r in results]
+        log_event(logger, "resumo", servicos=[f"{r['service']}:{'ok' if r['ok'] else 'falha'}" for r in resumo])
+        return resumo
 
     verificar_servicos()
 

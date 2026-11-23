@@ -6,12 +6,14 @@ Nunca guarde segredo em Variable: só o ARN/nome do segredo.
 """
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from data_aurora.shared.domain.errors import ConfigError
-from data_aurora.shared.logging import get_logger
+from data_aurora.shared.logging import get_logger, log_event
 
 logger = get_logger(__name__)
 
@@ -31,10 +33,13 @@ def _airflow_variable(name: str) -> str | None:
 
 
 def read_config(key: str, default: str = "") -> str:
-    value = os.getenv(key)
+    value, fonte = os.getenv(key), "env"
     if value is None or not value.strip():
-        value = _airflow_variable(f"data_aurora_{key.lower()}")
-    return (value or default).strip()
+        value, fonte = _airflow_variable(f"data_aurora_{key.lower()}"), "airflow_variable"
+    if value is None or not str(value).strip():
+        value, fonte = default, "padrao" if default else "ausente"
+    log_event(logger, "settings.fonte", chave=key, fonte=fonte)
+    return str(value).strip()
 
 
 @dataclass(frozen=True)
@@ -53,7 +58,6 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def load_settings() -> Settings:
-    logger.info("Starting load_settings")
     try:
         environment = read_config("DATA_ENVIRONMENT", "prod").lower()
         if environment not in ENVIRONMENTS:
@@ -65,8 +69,16 @@ def load_settings() -> Settings:
             people_service_key_secret_id=read_config("PEOPLE_SERVICE_KEY_SECRET_ID"),
             http_timeout_seconds=float(read_config("HTTP_TIMEOUT_SECONDS", "30")),
         )
-        logger.info("Completed load_settings environment=%s", settings.environment)
+        log_event(
+            logger,
+            "settings.carregadas",
+            ambiente=settings.environment,
+            regiao=settings.aws_region,
+            people_host=urlparse(settings.people_api_url).netloc or None,
+            people_segredo_configurado=bool(settings.people_service_key_secret_id),
+            timeout_s=settings.http_timeout_seconds,
+        )
         return settings
     except Exception as exc:
-        logger.error("Error in load_settings: %s", exc)
+        log_event(logger, "settings.erro", logging.ERROR, erro=type(exc).__name__, mensagem=str(exc))
         raise
