@@ -1,0 +1,106 @@
+name: Test and deploy DAGs to Airflow
+
+# Pull request: testes (inclui carregar as DAGs no Airflow 2.8.1, o mesmo da imagem de prod).
+# Push na main: testes e, passando, sync para o bucket que o sidecar do Airflow lê a cada 30s
+# (iac-aurora/pipeline). Layout no worker: /opt/airflow/dags/data-aurora/{dags,src}.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths: ["dags/**", "src/**", ".airflowignore", "requirements.txt", ".github/workflows/deploy-dags.yml"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-dags-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  S3_DAGS_BUCKET: aurora-airflow-dags-988477085226
+  REPO_NAME: data-aurora
+  AIRFLOW_VERSION: "2.8.1"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install Airflow (constraints oficiais) e dependências de teste
+        run: |
+          python -m pip install --upgrade pip
+          pip install "apache-airflow==${AIRFLOW_VERSION}" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Tests
+        env:
+          AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+          AIRFLOW__CORE__UNIT_TEST_MODE: "True"
+        run: |
+          airflow db migrate > /dev/null
+          pytest -q
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Preferência: role OIDC do iac-aurora (exige este repo em github_allowed_repositories).
+      - name: AWS credentials (OIDC)
+        if: vars.AIRFLOW_DEPLOY_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AIRFLOW_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Enquanto a role não existe: as mesmas chaves de CI dos outros serviços.
+      - name: AWS credentials (chaves de CI)
+        if: vars.AIRFLOW_DEPLOY_ROLE_ARN == ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync para o S3
+        run: |
+          set -euo pipefail
+          DEST="s3://${S3_DAGS_BUCKET}/${REPO_NAME}"
+          aws s3 sync dags/ "${DEST}/dags/" --delete --exclude "__pycache__/*" --exclude "*.pyc"
+          aws s3 sync src/ "${DEST}/src/" --delete --exclude "*__pycache__/*" --exclude "*.pyc"
+          aws s3 cp .airflowignore "${DEST}/.airflowignore"
+          echo "${GITHUB_SHA}" > DEPLOYED_SHA
+          aws s3 cp DEPLOYED_SHA "${DEST}/DEPLOYED_SHA"
+
+      - name: Resumo
+        run: |
+          {
+            echo "### DAGs publicadas"
+            echo ""
+            echo "| Item | Valor |"
+            echo "|---|---|"
+            echo "| Destino | \`s3://${S3_DAGS_BUCKET}/${REPO_NAME}/\` |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Airflow | https://pipeline.aurorapeople.ai (sidecar sincroniza em ~30s) |"
+            echo ""
+            echo '```'
+            aws s3 ls --recursive "s3://${S3_DAGS_BUCKET}/${REPO_NAME}/dags/"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

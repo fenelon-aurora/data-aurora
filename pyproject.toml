@@ -1,0 +1,17 @@
+[project]
+name = "data-aurora"
+version = "0.1.0"
+description = "DAGs e pacote Python do Airflow da Aurora"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "dags", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
