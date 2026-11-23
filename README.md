@@ -71,8 +71,8 @@ Variable `data_aurora_<chave em minúsculas>` (Admin → Variables). Variable nu
   `s3://aurora-airflow-dags-988477085226/data-aurora/` (com `--delete`), mais `.airflowignore` e `DEPLOYED_SHA`.
   O sidecar do Airflow copia o bucket para `/opt/airflow/dags/` a cada 30 s.
 
-Credenciais: usa a role OIDC se a variável do repositório `AIRFLOW_DEPLOY_ROLE_ARN` estiver definida;
-senão, os secrets `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (as chaves de CI dos outros serviços).
+Credenciais: usuário IAM `ci-auto` (o mesmo dos outros serviços), pelos secrets do repositório
+`AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`.
 
 O deploy só copia código. Pacote novo em `requirements.txt` precisa entrar antes na imagem
 (`iac-aurora/pipeline/docker/requirements.txt`) e ser publicado.
@@ -89,10 +89,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 ## Pendências de infraestrutura (iac-aurora)
 
-1. **Credencial do deploy:** cadastrar `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` neste repositório, ou
-   (preferível) incluir `fenelon-aurora/data-aurora` em `github_allowed_repositories`, aplicar o
-   Terraform de `pipeline/` e definir `AIRFLOW_DEPLOY_ROLE_ARN`. Hoje a role
-   `aurora-airflow-github-actions-role` não existe.
+1. **Credencial do deploy:** cadastrar `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` do `ci-auto` nos secrets deste repositório.
 2. **Chave de serviço do People:** criar o segredo `data/prod/people-service-key` e dar
    `secretsmanager:GetSecretValue` nesse ARN à role da task do worker do Airflow; o People passa a
    aceitar a mesma chave nas rotas `/internal/*` que a DAG chama.

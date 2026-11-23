@@ -11,7 +11,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -62,17 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Preferência: role OIDC do iac-aurora (exige este repo em github_allowed_repositories).
-      - name: AWS credentials (OIDC)
-        if: vars.AIRFLOW_DEPLOY_ROLE_ARN != ''
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.AIRFLOW_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      # Enquanto a role não existe: as mesmas chaves de CI dos outros serviços.
-      - name: AWS credentials (chaves de CI)
-        if: vars.AIRFLOW_DEPLOY_ROLE_ARN == ''
+      # Mesmo usuário IAM de CI dos outros serviços (ci-auto); as chaves ficam nos secrets do repositório.
+      - name: AWS credentials (ci-auto)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
