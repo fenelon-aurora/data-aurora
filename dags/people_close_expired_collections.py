@@ -67,7 +67,8 @@ def _avisar_falha(context: dict) -> None:
 DEFAULT_ARGS = {
     "owner": "data-aurora",
     "retries": 2,
-    "retry_delay": timedelta(minutes=2),
+    # Roda uma vez por dia: se falhar, tenta de novo logo, sem esperar o dia seguinte.
+    "retry_delay": timedelta(minutes=10),
     # Falha: só depois da última tentativa. Sucesso: conforme data_aurora_notify_success.
     "on_failure_callback": _avisar_falha,
     "on_success_callback": _avisar_sucesso,
@@ -77,7 +78,9 @@ DEFAULT_ARGS = {
 @dag(
     dag_id="people_close_expired_collections",
     description="Encerra coletas de ciclo com prazo vencido (People, D58)",
-    schedule="*/15 * * * *",
+    # Todo prazo termina às 23:59:59 de Brasília (D58); só vence algo à meia-noite.
+    # 03:05 UTC = 00:05 em Brasília (UTC-3, sem horário de verão).
+    schedule="5 3 * * *",
     start_date=datetime(2026, 11, 1),
     catchup=False,
     max_active_runs=1,

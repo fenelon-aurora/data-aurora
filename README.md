@@ -45,7 +45,7 @@ Regras (as do `ia-aurora/.cursor/rules/02-ia-hexagonal-architecture.mdc`):
 | DAG | Agenda | Situação |
 |---|---|---|
 | `data_aurora_healthcheck` | manual | Confere pacote, configuração e `GET /health` do People |
-| `people_close_expired_collections` | a cada 15 min (`*/15 * * * *`, UTC: :00, :15, :30, :45) | Chama `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`). Erro de configuração falha na hora, sem retentativa |
+| `people_close_expired_collections` | 1x por dia, 00:05 de Brasília (`5 3 * * *` UTC). Todo prazo termina às 23:59:59 de Brasília, então só vence algo à meia-noite; retentativa a cada 10 min | Chama `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`). Erro de configuração falha na hora, sem retentativa |
 
 Toda DAG: `catchup=False`, `max_active_runs=1`, tag `data-aurora`.
 
@@ -73,7 +73,7 @@ A `people_close_expired_collections` manda e-mail pelo SES (`noreply@aurorapeopl
 
 - **falha:** sempre, depois da última tentativa (não a cada retry), com erro, mensagem, tentativa e link para o log;
 - **sucesso:** conforme `data_aurora_notify_success`: `com_mudancas` (padrão: só quando encerrou algum
-  ciclo, para não mandar 96 e-mails por dia), `sempre` ou `nunca`.
+  ciclo), `sempre` ou `nunca`.
 
 | Variable | Padrão |
 |---|---|
