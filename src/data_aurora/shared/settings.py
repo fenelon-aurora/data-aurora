@@ -71,7 +71,9 @@ def load_settings() -> Settings:
             environment=environment,
             aws_region=read_config("AWS_REGION", "us-east-1"),
             people_api_url=read_config("PEOPLE_API_URL"),
-            people_service_key_secret_id=read_config("PEOPLE_SERVICE_KEY_SECRET_ID"),
+            people_service_key_secret_id=read_config(
+                "PEOPLE_SERVICE_KEY_SECRET_ID", f"grant/{environment}/people-provisioner"
+            ),
             http_timeout_seconds=float(read_config("HTTP_TIMEOUT_SECONDS", "30")),
             notify_recipients=tuple(
                 e.strip() for e in read_config("NOTIFY_RECIPIENTS", DEFAULT_RECIPIENTS).split(",") if e.strip()

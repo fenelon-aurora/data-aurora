@@ -32,9 +32,10 @@ def build_container(settings: Settings | None = None) -> Container:
 
         def people_service_key() -> str:
             settings.require("people_service_key_secret_id")
-            key = str(secrets.get_json(settings.people_service_key_secret_id).get("key", ""))
+            secret = secrets.get_json(settings.people_service_key_secret_id)
+            key = str(secret.get("provisioner_key") or secret.get("key") or "")
             if not key:
-                raise ConfigError("segredo da chave de serviço do People sem o campo 'key'")
+                raise ConfigError("segredo da chave de serviço do People sem o campo 'provisioner_key'")
             return key
 
         people = PeopleHttpAdapter(settings.people_api_url, people_service_key, settings.http_timeout_seconds)

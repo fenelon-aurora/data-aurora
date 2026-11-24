@@ -1,7 +1,7 @@
 """Cliente HTTP do People (serviço-a-serviço).
 
-Rotas internas do People exigem o header `x-aurora-service-key` (mesmo padrão do
-`x-aurora-provisioner-key` de `/internal/account-access/resolve`). A chave vem do Secrets Manager.
+Rotas `/internal/*` do People exigem a chave de serviço no header `x-aurora-provisioner-key` (a mesma
+que o Grant usa). A chave vem do Secrets Manager (`grant/<env>/people-provisioner`).
 Cada chamada gera uma linha `people.http` com método, rota, status e latência.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from data_aurora.shared.logging import get_logger, log_event
 logger = get_logger(__name__)
 
 SERVICE = "people"
-SERVICE_KEY_HEADER = "x-aurora-service-key"
+SERVICE_KEY_HEADER = "x-aurora-provisioner-key"
 CLOSE_EXPIRED_PATH = "/internal/cycles/close-expired-collections"
 
 

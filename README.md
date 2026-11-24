@@ -45,7 +45,7 @@ Regras (as do `ia-aurora/.cursor/rules/02-ia-hexagonal-architecture.mdc`):
 | DAG | Agenda | Situação |
 |---|---|---|
 | `data_aurora_healthcheck` | manual | Confere pacote, configuração e `GET /health` do People |
-| `people_close_expired_collections` | a cada 15 min (`*/15 * * * *`, UTC: :00, :15, :30, :45) | **Nasce pausada.** Depende da rota `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`), ainda não criada |
+| `people_close_expired_collections` | a cada 15 min (`*/15 * * * *`, UTC: :00, :15, :30, :45) | Chama `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`). Erro de configuração falha na hora, sem retentativa |
 
 Toda DAG: `catchup=False`, `max_active_runs=1`, tag `data-aurora`.
 
@@ -94,7 +94,7 @@ Variable `data_aurora_<chave em minúsculas>` (Admin → Variables). Variable nu
 |---|---|---|
 | `DATA_ENVIRONMENT` | `prod` | `dev`, `demo` ou `prod` (padrão `prod`) |
 | `PEOPLE_API_URL` | `https://q6f4gw4v40.execute-api.us-east-1.amazonaws.com/api/v1` | base da API do People |
-| `PEOPLE_SERVICE_KEY_SECRET_ID` | `data/prod/people-service-key` | segredo JSON `{"key": "..."}` enviado em `x-aurora-service-key` |
+| `PEOPLE_SERVICE_KEY_SECRET_ID` | `grant/prod/people-provisioner` (padrão: `grant/<ambiente>/people-provisioner`) | segredo JSON `{"provisioner_key": "..."}` enviado em `x-aurora-provisioner-key`, a mesma chave que o Grant usa nas rotas `/internal/*` do People |
 | `HTTP_TIMEOUT_SECONDS` | `30` | timeout das chamadas HTTP |
 | `AWS_REGION` | `us-east-1` | região do Secrets Manager |
 
@@ -126,7 +126,5 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 ## Pendências de infraestrutura (iac-aurora)
 
 1. **Credencial do deploy:** cadastrar `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` do `ci-auto` nos secrets deste repositório.
-2. **Chave de serviço do People:** criar o segredo `data/prod/people-service-key` e dar
-   `secretsmanager:GetSecretValue` nesse ARN à role da task do worker do Airflow; o People passa a
-   aceitar a mesma chave nas rotas `/internal/*` que a DAG chama.
+2. **Chave de serviço do People:** a role da task do Airflow precisa de `secretsmanager:GetSecretValue` em `grant/prod/people-provisioner`.
 3. **Configuração:** `PEOPLE_API_URL` e `PEOPLE_SERVICE_KEY_SECRET_ID` no worker (env ou Airflow Variable).

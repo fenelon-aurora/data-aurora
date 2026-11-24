@@ -31,4 +31,4 @@ def test_container_monta_sem_ler_segredo(monkeypatch):
     # O segredo só é lido quando a rota interna é chamada, não ao montar o container.
     monkeypatch.setenv("PEOPLE_API_URL", "https://people.example/api/v1")
     container = build_container()
-    assert container.settings.people_service_key_secret_id == ""
+    assert container.settings.people_service_key_secret_id == "grant/prod/people-provisioner"

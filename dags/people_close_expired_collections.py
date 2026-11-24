@@ -95,7 +95,16 @@ def people_close_expired_collections():
         logger = get_logger("dags.people_close_expired_collections")
         dry_run = bool((params or {}).get("dry_run", False))
         log_execucao(logger, {**_contexto_execucao(), "dry_run": dry_run})
-        result = build_container().close_expired_collections.execute(dry_run=dry_run)
+        from airflow.exceptions import AirflowFailException
+
+        from data_aurora.shared.domain.errors import ConfigError
+
+        try:
+            result = build_container().close_expired_collections.execute(dry_run=dry_run)
+        except ConfigError as exc:
+            # Configuração não se corrige tentando de novo: falha já, sem retentativa, e avisa.
+            log_event(logger, "falha_sem_retentativa", motivo="configuracao", mensagem=str(exc))
+            raise AirflowFailException(f"Configuração: {exc}") from exc
         resumo = {"closed": result.closed, "cycle_ids": list(result.closed_cycle_ids), "dry_run": result.dry_run}
         log_event(logger, "resumo", encerrados=result.closed, ignorados=result.skipped, dry_run=result.dry_run,
                   ciclos=result.closed_cycle_ids)
