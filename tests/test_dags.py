@@ -25,4 +25,6 @@ def test_dags_carregam_sem_erro():
     lembrete = bag.get_dag("people_send_deadline_reminders")
     assert lembrete.max_active_runs == 1 and lembrete.catchup is False
     assert lembrete.params["days_before"] == 3
-    assert lembrete.get_task("lembrar").on_failure_callback
+    tarefa_lembrete = lembrete.get_task("lembrar")
+    # Mesmos avisos SES da outra DAG (mesmos destinatários: data_aurora_notify_recipients).
+    assert tarefa_lembrete.on_failure_callback and tarefa_lembrete.on_success_callback
