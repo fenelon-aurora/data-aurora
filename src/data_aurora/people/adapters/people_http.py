@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from data_aurora.people.domain.entities import CloseExpiredResult
+from data_aurora.people.domain.entities import CloseExpiredResult, DeadlineReminderCycle, DeadlineRemindersResult
 from data_aurora.shared.domain.entities import ServiceHealth
 from data_aurora.shared.domain.errors import UpstreamError
 from data_aurora.shared.logging import get_logger, log_event
@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 SERVICE = "people"
 SERVICE_KEY_HEADER = "x-aurora-provisioner-key"
 CLOSE_EXPIRED_PATH = "/internal/cycles/close-expired-collections"
+DEADLINE_REMINDERS_PATH = "/internal/cycles/send-deadline-reminders"
 
 
 class PeopleHttpAdapter:
@@ -79,5 +80,34 @@ class PeopleHttpAdapter:
         return CloseExpiredResult(
             closed_cycle_ids=tuple(str(i) for i in body.get("closed_cycle_ids", [])),
             skipped=int(body.get("skipped", 0)),
+            dry_run=bool(body.get("dry_run", dry_run)),
+        )
+
+    def send_deadline_reminders(self, *, dry_run: bool, days_before: int) -> DeadlineRemindersResult:
+        try:
+            resp = self._call(
+                "POST", DEADLINE_REMINDERS_PATH, json={"dry_run": dry_run, "days_before": days_before},
+                headers={SERVICE_KEY_HEADER: self._service_key()},
+            )
+        except requests.RequestException as exc:
+            raise UpstreamError(SERVICE, type(exc).__name__) from exc
+        if resp.status_code != 200:
+            raise UpstreamError(SERVICE, f"{DEADLINE_REMINDERS_PATH} recusado", resp.status_code)
+        body = resp.json()
+        return DeadlineRemindersResult(
+            cycles=tuple(
+                DeadlineReminderCycle(
+                    cycle_id=str(c.get("cycle_id", "")),
+                    company_id=str(c.get("company_id", "")),
+                    deadline_at=str(c.get("deadline_at", "")),
+                    collaborators=int(c.get("collaborators", 0)),
+                    managers=int(c.get("managers", 0)),
+                    sent=int(c.get("sent", 0)),
+                    skipped=int(c.get("skipped", 0)),
+                    already_reminded=bool(c.get("already_reminded", False)),
+                )
+                for c in body.get("cycles", [])
+            ),
+            days_before=int(body.get("days_before", days_before)),
             dry_run=bool(body.get("dry_run", dry_run)),
         )

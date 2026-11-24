@@ -23,7 +23,7 @@ src/data_aurora/
     settings.py, logging.py
   people/                              → tudo que fala com o People
     domain/   entities, ports (PeoplePort)
-    services/ close_expired_collections
+    services/ close_expired_collections, send_deadline_reminders
     adapters/ people_http (requests)
 tests/                                 → pytest; tests/people espelha o domínio; test_dags.py só roda com Airflow (CI)
 ```
@@ -46,6 +46,7 @@ Regras (as do `ia-aurora/.cursor/rules/02-ia-hexagonal-architecture.mdc`):
 |---|---|---|
 | `data_aurora_healthcheck` | manual | Confere pacote, configuração e `GET /health` do People |
 | `people_close_expired_collections` | 1x por dia, 00:05 de Brasília (`5 3 * * *` UTC). Todo prazo termina às 23:59:59 de Brasília, então só vence algo à meia-noite; retentativa a cada 10 min | Chama `POST /internal/cycles/close-expired-collections` do People (fase 3 de `people-aurora/docs/plan-prazo-encerramento-ciclo.md`). Erro de configuração falha na hora, sem retentativa |
+| `people_send_deadline_reminders` | 1x por dia, 09:00 de Brasília (`0 12 * * *` UTC); 1 retentativa em 10 min | Chama `POST /internal/cycles/send-deadline-reminders` do People: lembrete (e-mails E-08/E-09) a quem não concluiu a conversa, nos ciclos em coleta cujo prazo cai daqui a até 3 dias de calendário (param `days_before`). Um envio por prazo, marcado no log do ciclo; prorrogar gera novo lembrete. `dry_run` só lista |
 
 Toda DAG: `catchup=False`, `max_active_runs=1`, tag `data-aurora`.
 
@@ -62,6 +63,7 @@ logs remotos em S3), porque os loggers ficam sob `airflow.task`. Uma linha por e
 | `<caso_de_uso>.inicio` / `.fim` / `.erro` | em volta de cada caso de uso | parâmetros, contagens, `duracao_ms`; no erro, tipo e mensagem |
 | `people.http` | cada chamada ao People | `metodo`, `host`, `rota`, `status`, `latencia_ms` (ERROR se status ≥ 400 ou falha de rede) |
 | `close_expired_collections.ciclo` | um por ciclo encerrado | `ciclo_id`, `acao` |
+| `send_deadline_reminders.ciclo` | um por ciclo/prazo com pendentes | `ciclo_id`, `empresa_id`, `prazo`, `colaboradores`, `gestores`, `enviados`, `falhas`, `acao` |
 | `resumo` | última linha da task | totais da execução (também devolvidos como XCom) |
 
 Chaves com `key`, `token`, `secret`, `password`, `senha` ou `authorization` no nome saem como `***`.
@@ -69,7 +71,7 @@ Nunca registrar texto de colaborador.
 
 ## Avisos por e-mail (SES)
 
-A `people_close_expired_collections` manda e-mail pelo SES (`noreply@aurorapeople.ai`, domínio verificado):
+A `people_close_expired_collections` e a `people_send_deadline_reminders` mandam e-mail pelo SES (`noreply@aurorapeople.ai`, domínio verificado):
 
 - **falha:** sempre, depois da última tentativa (não a cada retry), com erro, mensagem, tentativa e link para o log;
 - **sucesso:** conforme `data_aurora_notify_success`: `com_mudancas` (padrão: só quando encerrou algum

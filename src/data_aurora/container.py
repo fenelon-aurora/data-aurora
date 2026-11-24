@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from data_aurora.people.adapters.people_http import PeopleHttpAdapter
 from data_aurora.people.services.close_expired_collections import CloseExpiredCollections
+from data_aurora.people.services.send_deadline_reminders import SendDeadlineReminders
 from data_aurora.shared.adapters.secrets_manager import SecretsManagerAdapter
 from data_aurora.shared.adapters.ses_email import SesEmailAdapter
 from data_aurora.shared.domain.errors import ConfigError
@@ -21,6 +22,7 @@ class Container:
     settings: Settings
     healthcheck: HealthCheck
     close_expired_collections: CloseExpiredCollections
+    send_deadline_reminders: SendDeadlineReminders
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -43,6 +45,7 @@ def build_container(settings: Settings | None = None) -> Container:
             settings=settings,
             healthcheck=HealthCheck([people]),
             close_expired_collections=CloseExpiredCollections(people),
+            send_deadline_reminders=SendDeadlineReminders(people),
         )
         logger.info("Completed build_container")
         return container
