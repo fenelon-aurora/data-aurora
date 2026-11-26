@@ -1,10 +1,10 @@
-"""Lembrete automático de prazo da coleta: 3 dias antes do fim, a quem ainda não concluiu a conversa.
+"""Lembrete automático de prazo da coleta: todo dia nos últimos 3 dias, a quem ainda não concluiu a conversa.
 
 Chama `POST /internal/cycles/send-deadline-reminders` do People, que escolhe os ciclos em coleta com
 prazo (fim do ciclo ou da janela) daqui a até `days_before` dias de calendário em Brasília e envia o
-lembrete (e-mails E-08 colaborador / E-09 gestor) a quem tem conversa não concluída. Um envio por
-prazo: a marca fica no log do ciclo, então rodar de novo (ou nos dias seguintes) não repete; prorrogar
-o prazo gera um novo lembrete perto do novo prazo.
+lembrete (e-mails E-08 colaborador / E-09 gestor) a quem tem conversa não concluída. Um envio por dia
+da contagem: faltam 3, 2, 1 e, no dia do prazo, "É hoje". A marca do prazo e do dia fica no log do ciclo,
+então rodar de novo no mesmo dia não repete; prorrogar o prazo recomeça a contagem perto do novo prazo.
 """
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ DEFAULT_ARGS = {
     default_args=DEFAULT_ARGS,
     params={
         "dry_run": Param(False, type="boolean", description="Só lista quem seria lembrado, sem enviar"),
-        "days_before": Param(3, type="integer", minimum=1, maximum=30, description="Dias antes do prazo"),
+        "days_before": Param(3, type="integer", minimum=1, maximum=30, description="Lembra todo dia a partir de N dias antes do prazo, até o dia do prazo"),
     },
     tags=["data-aurora", "people", "ciclo"],
 )
